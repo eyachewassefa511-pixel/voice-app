@@ -1,38 +1,46 @@
 const express = require('express');
-const cors = require('cors');
-const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
-
 const app = express();
-app.use(cors());
+const PORT = process.env.PORT || 3000;
+
 app.use(express.json());
+app.use(express.static(path.join(__dirname, '/')));
 
-// index.html እና ሰነዶችን ቀጥታ ለማሳየት
-app.use(express.static(__dirname));
+// የግብርና ቃላት መረጃ ቋት (Database Template)
+let dictionary = [
+    { id: 1, term: "Agronomy", amharic: "አግሮኖሚ (ሰብል ሳይንስ)", category: "Crop Science", definition: "የአፈር አያያዝንና የሰብል ምርታማነትን የሚያጠና የግብርና ሳይንስ ቅርንጫፍ።" },
+    { id: 2, term: "Compost", amharic: "ኮምፖስት", category: "Soil Science", definition: "ከእፅዋት ተረፈ-ምርትና ከእንስሳት ፍግ በስበሰ የሚዘጋጅ ተፈጥሯዊ ማዳበሪያ።" },
+    { id: 3, term: "Coffee Cupping", amharic: "የቡና ቅመሳ (ካፒንግ)", category: "Coffee Quality", definition: "የቡናን መዓዛ፣ ጣዕም፣ አሲዳማነትና ጥራት በስሜት ህዋሳት የመገምገሚያ ዘዴ።" },
+    { id: 4, term: "Crop Rotation", amharic: "የሰብል ፈራቃ", category: "Agronomy", definition: "የአፈርን ለምነት ለመጠበቅ በተመሳሳይ መሬት ላይ በየወቅቱ ልዩ ልዩ ሰብሎችን የመዝራት ዘዴ።" },
+    { id: 5, term: "Soil Erosion", amharic: "የአፈር መሸርሸር", category: "Soil Science", definition: "በውሃ ወይም በንፋስ ምክንያት ለም የሆነው የላይኛው የአፈር አካል መወሰድ።" }
+];
 
-if (!fs.existsSync('./uploads')){
-  fs.mkdirSync('./uploads');
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'uploads/'),
-  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
-});
-const upload = multer({ storage });
-
-let agreements = [];
-
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-app.post('/api/agreements/create', upload.single('voice_note'), (req, res) => {
-  const { lender_phone, borrower_phone, amount, due_date } = req.body;
-  const voice_note_url = req.file ? req.file.path : null;
-  const newAgreement = { id: agreements.length + 1001, lender_phone, borrower_phone, amount, due_date, voice_note_url, status: 'PENDING' };
-  agreements.push(newAgreement);
-  res.status(201).json({ message: 'ውሉ በትክክል ተመዝግቧል!', agreement: newAgreement });
+// ቃላትን ለመፈለግ እና ለመዘርዘር የሚያገለግል API
+app.get('/api/terms', (req, res) => {
+    const query = req.query.q ? req.query.q.toLowerCase() : '';
+    const filtered = dictionary.filter(item => 
+        item.term.toLowerCase().includes(query) || 
+        item.amharic.includes(query) ||
+        item.category.toLowerCase().includes(query)
+    );
+    res.json(filtered);
 });
 
-app.listen(5000, () => console.log('Server running on http://localhost:5000'));
+// አዲስ ቃል ለመጨመር የሚያገለግል API
+app.post('/api/terms', (req, res) => {
+    const { term, amharic, category, definition } = req.body;
+    if (!term || !amharic) {
+        return res.status(400).json({ error: "እባክዎን ቃሉን እና ትርጉሙን ያስገቡ!" });
+    }
+    const newEntry = { id: dictionary.length + 1, term, amharic, category: category || "General", definition };
+    dictionary.push(newEntry);
+    res.json({ message: "ቃሉ በትክክል ተመዝግቧል!", entry: newEntry });
+});
+
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});

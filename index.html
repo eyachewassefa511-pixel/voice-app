@@ -3,104 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voice Micro-Agreement</title>
+    <title>የግብርና መዝገበ-ቃላት (Agri-Dictionary)</title>
     <link rel="manifest" href="/manifest.json">
     <style>
-        body { font-family: sans-serif; padding: 20px; max-width: 400px; margin: auto; background: #f4f4f9; }
-        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        input, button { width: 100%; padding: 10px; margin: 8px 0; box-sizing: border-box; border-radius: 5px; border: 1px solid #ccc; }
-        button { background: #007bff; color: white; border: none; font-weight: bold; cursor: pointer; }
-        .record-btn { background: #dc3545; }
-        .submit-btn { background: #28a745; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 15px; background: #f0f4f1; color: #333; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #2e7d32; font-size: 22px; margin-bottom: 20px; }
+        input, select, textarea, button { width: 100%; padding: 12px; margin: 8px 0; box-sizing: border-box; border-radius: 6px; border: 1px solid #ccc; font-size: 15px; }
+        .search-box { border: 2px solid #2e7d32; }
+        button { background: #2e7d32; color: white; font-weight: bold; border: none; cursor: pointer; }
+        button:hover { background: #1b5e20; }
+        .card { background: #f9f9f9; border-left: 5px solid #2e7d32; padding: 12px; margin: 10px 0; border-radius: 4px; }
+        .term-title { font-weight: bold; color: #1b5e20; font-size: 17px; }
+        .category-badge { background: #e8f5e9; color: #2e7d32; padding: 3px 8px; border-radius: 10px; font-size: 12px; float: right; }
+        .add-sec { margin-top: 25px; border-top: 2px dashed #ccc; padding-top: 15px; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h2>??? ???? ?? ????</h2>
-        <input type="text" id="lender" placeholder="????? ??? ???">
-        <input type="text" id="borrower" placeholder="????? ??? ???">
-        <input type="number" id="amount" placeholder="??? ??? (ETB)">
-        <input type="date" id="dueDate">
+    <div class="container">
+        <h1>🌱 የግብርና መዝገበ-ቃላት</h1>
         
-        <button id="recordBtn" class="record-btn" onclick="toggleRecording()">?? ???? ?? ???? (Start)</button>
-        <audio id="audioPreview" controls style="display:none; width:100%; margin-top:10px;"></audio>
+        <!-- ፍለጋ -->
+        <input type="text" id="searchInput" class="search-box" placeholder="🔍 ቃል ወይም ትርጉም ይፈልጉ..." onkeyup="searchTerms()">
         
-        <button class="submit-btn" onclick="submitAgreement()">??? ???? ?? ??</button>
-        <p id="status" style="font-weight: bold; color: #d9534f;"></p>
+        <div id="results"></div>
+
+        <!-- አዲስ ቃል መመዝገቢያ -->
+        <div class="add-sec">
+            <h3>➕ አዲስ የግብርና ቃል ጨምር</h3>
+            <input type="text" id="newTerm" placeholder="የግብርና ቃል (English)">
+            <input type="text" id="newAmharic" placeholder="የአማርኛ ትርጉም">
+            <select id="newCategory">
+                <option value="Agronomy">Agronomy (ሰብል ሳይንስ)</option>
+                <option value="Soil Science">Soil Science (የአፈር ሳይንስ)</option>
+                <option value="Coffee Quality">Coffee Quality (የቡና ጥራት)</option>
+                <option value="Agroforestry">Agroforestry (የዛፍና ሰብል ልማት)</option>
+                <option value="General">ጠቅላላ የግብርና ቃል</option>
+            </select>
+            <textarea id="newDef" placeholder="ማብራሪያ / ፍቺ..."></textarea>
+            <button onclick="addTerm()">መዝግብ</button>
+            <p id="msg" style="font-weight:bold;"></p>
+        </div>
     </div>
 
     <script>
-        let mediaRecorder;
-        let audioChunks = [];
-        let audioBlob = null;
+        async function searchTerms() {
+            const q = document.getElementById('searchInput').value;
+            const res = await fetch(`/api/terms?q=${encodeURIComponent(q)}`);
+            const data = await res.json();
+            
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
 
-        async function toggleRecording() {
-            const btn = document.getElementById('recordBtn');
-            const status = document.getElementById('status');
-
-            if (mediaRecorder && mediaRecorder.state === "recording") {
-                mediaRecorder.stop();
-                btn.innerText = "?? ???? ?? ???? (Start)";
-                btn.style.background = "#dc3545";
-                status.innerText = "???? ???? ???? ?????";
-            } else {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    mediaRecorder = new MediaRecorder(stream);
-                    audioChunks = [];
-                    
-                    mediaRecorder.ondataavailable = event => {
-                        if (event.data.size > 0) audioChunks.push(event.data);
-                    };
-
-                    mediaRecorder.onstop = () => {
-                        audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                        const audioUrl = URL.createObjectURL(audioBlob);
-                        const audioPreview = document.getElementById('audioPreview');
-                        audioPreview.src = audioUrl;
-                        audioPreview.style.display = 'block';
-                    };
-                    
-                    mediaRecorder.start();
-                    btn.innerText = "?? ????? ??? (Stop)";
-                    btn.style.background = "#ffc107";
-                    status.innerText = "?? ??? ?????? ??...";
-                } catch (err) {
-                    status.innerText = "? ?????? ???? ??????! ????? ?????? ??? ????";
-                    console.error(err);
-                }
-            }
-        }
-
-        async function submitAgreement() {
-            const status = document.getElementById('status');
-            if (!audioBlob) {
-                alert("????? ????? ???? ?? ????!");
+            if(data.length === 0) {
+                resultsDiv.innerHTML = '<p style="text-align:center; color:#888;">ምንም የተገኘ ቃል የለም</p>';
                 return;
             }
 
-            const formData = new FormData();
-            formData.append('lender_phone', document.getElementById('lender').value);
-            formData.append('borrower_phone', document.getElementById('borrower').value);
-            formData.append('amount', document.getElementById('amount').value);
-            formData.append('due_date', document.getElementById('dueDate').value);
-            formData.append('voice_note', audioBlob, 'voice_agreement.webm');
+            data.forEach(item => {
+                resultsDiv.innerHTML += `
+                    <div class="card">
+                        <span class="category-badge">${item.category}</span>
+                        <div class="term-title">${item.term} - ${item.amharic}</div>
+                        <p style="margin: 5px 0 0 0; color: #555;">${item.definition}</p>
+                    </div>
+                `;
+            });
+        }
 
-            status.innerText = "????? ??...";
+        async function addTerm() {
+            const term = document.getElementById('newTerm').value;
+            const amharic = document.getElementById('newAmharic').value;
+            const category = document.getElementById('newCategory').value;
+            const definition = document.getElementById('newDef').value;
+            const msg = document.getElementById('msg');
 
-            try {
-                const response = await fetch('/api/agreements/create', {
-                    method: 'POST',
-                    body: formData
-                });
-                const result = await response.json();
-                status.style.color = "green";
-                status.innerText = "? " + result.message;
-            } catch (error) {
-                status.style.color = "red";
-                status.innerText = "? ??? ??????! ???? ????? ??????";
+            const res = await fetch('/api/terms', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ term, amharic, category, definition })
+            });
+
+            const data = await res.json();
+            if(res.ok) {
+                msg.style.color = 'green';
+                msg.innerText = '✅ ' + data.message;
+                document.getElementById('newTerm').value = '';
+                document.getElementById('newAmharic').value = '';
+                document.getElementById('newDef').value = '';
+                searchTerms();
+            } else {
+                msg.style.color = 'red';
+                msg.innerText = '❌ ' + data.error;
             }
         }
+
+        // ገፁ ሲከፈት የመጀመሪያዎቹን ቃላት ያሳያል
+        searchTerms();
     </script>
 </body>
 </html>
