@@ -1,12 +1,13 @@
 const express = require('express');
 const path = require('path');
+const https = require('https');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '/')));
 
-// የግብርና ቃላት መረጃ ቋት (Database Template)
+// ዝግጁ የመነሻ ቃላት
 let dictionary = [
     { id: 1, term: "Agronomy", amharic: "አግሮኖሚ (ሰብል ሳይንስ)", category: "Crop Science", definition: "የአፈር አያያዝንና የሰብል ምርታማነትን የሚያጠና የግብርና ሳይንስ ቅርንጫፍ።" },
     { id: 2, term: "Compost", amharic: "ኮምፖስት", category: "Soil Science", definition: "ከእፅዋት ተረፈ-ምርትና ከእንስሳት ፍግ በስበሰ የሚዘጋጅ ተፈጥሯዊ ማዳበሪያ።" },
@@ -15,9 +16,9 @@ let dictionary = [
     { id: 5, term: "Soil Erosion", amharic: "የአፈር መሸርሸር", category: "Soil Science", definition: "በውሃ ወይም በንፋስ ምክንያት ለም የሆነው የላይኛው የአፈር አካል መወሰድ።" }
 ];
 
-// ቃላትን ለመፈለግ እና ለመዘርዘር የሚያገለግል API
+// ቃላትን ለመፈለግ የሚያገለግል API
 app.get('/api/terms', (req, res) => {
-    const query = req.query.q ? req.query.q.toLowerCase() : '';
+    const query = req.query.q ? req.query.q.toLowerCase().trim() : '';
     const filtered = dictionary.filter(item => 
         item.term.toLowerCase().includes(query) || 
         item.amharic.includes(query) ||
@@ -26,7 +27,7 @@ app.get('/api/terms', (req, res) => {
     res.json(filtered);
 });
 
-// አዲስ ቃል ለመጨመር የሚያገለግል API
+// አዲስ ቃል መመዝገቢያ API
 app.post('/api/terms', (req, res) => {
     const { term, amharic, category, definition } = req.body;
     if (!term || !amharic) {
