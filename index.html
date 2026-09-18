@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="am">
-<head><link rel="manifest" href="/manifest.json">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Voice Micro-Agreement</title>
+    <link rel="manifest" href="/manifest.json">
     <style>
         body { font-family: sans-serif; padding: 20px; max-width: 400px; margin: auto; background: #f4f4f9; }
         .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -15,17 +16,17 @@
 </head>
 <body>
     <div class="card">
-        <h2>አዲስ የድምፅ ውል መዝግብ</h2>
-        <input type="text" id="lender" placeholder="የአበዳሪ ስልክ ቁጥር">
-        <input type="text" id="borrower" placeholder="የተበዳሪ ስልክ ቁጥር">
-        <input type="number" id="amount" placeholder="የብር መጠን (ETB)">
+        <h2>??? ???? ?? ????</h2>
+        <input type="text" id="lender" placeholder="????? ??? ???">
+        <input type="text" id="borrower" placeholder="????? ??? ???">
+        <input type="number" id="amount" placeholder="??? ??? (ETB)">
         <input type="date" id="dueDate">
         
-        <button id="recordBtn" class="record-btn" onclick="toggleRecording()">🎤 የድምፅ ውል ይቅረፁ (Start)</button>
+        <button id="recordBtn" class="record-btn" onclick="toggleRecording()">?? ???? ?? ???? (Start)</button>
         <audio id="audioPreview" controls style="display:none; width:100%; margin-top:10px;"></audio>
         
-        <button class="submit-btn" onclick="submitAgreement()">ውሉን መዝግብ እና ላክ</button>
-        <p id="status"></p>
+        <button class="submit-btn" onclick="submitAgreement()">??? ???? ?? ??</button>
+        <p id="status" style="font-weight: bold; color: #d9534f;"></p>
     </div>
 
     <script>
@@ -35,33 +36,46 @@
 
         async function toggleRecording() {
             const btn = document.getElementById('recordBtn');
+            const status = document.getElementById('status');
+
             if (mediaRecorder && mediaRecorder.state === "recording") {
                 mediaRecorder.stop();
-                btn.innerText = "🎤 የድምፅ ውል ይቅረፁ (Start)";
+                btn.innerText = "?? ???? ?? ???? (Start)";
                 btn.style.background = "#dc3545";
+                status.innerText = "???? ???? ???? ?????";
             } else {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
-                audioChunks = [];
-                
-                mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
-                mediaRecorder.onstop = () => {
-                    audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                    const audioUrl = URL.createObjectURL(audioBlob);
-                    const audioPreview = document.getElementById('audioPreview');
-                    audioPreview.src = audioUrl;
-                    audioPreview.style.display = 'block';
-                };
-                
-                mediaRecorder.start();
-                btn.innerText = "⏹️ መቅረፁን አቁም (Stop)";
-                btn.style.background = "#ffc107";
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    
+                    mediaRecorder.ondataavailable = event => {
+                        if (event.data.size > 0) audioChunks.push(event.data);
+                    };
+
+                    mediaRecorder.onstop = () => {
+                        audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        const audioUrl = URL.createObjectURL(audioBlob);
+                        const audioPreview = document.getElementById('audioPreview');
+                        audioPreview.src = audioUrl;
+                        audioPreview.style.display = 'block';
+                    };
+                    
+                    mediaRecorder.start();
+                    btn.innerText = "?? ????? ??? (Stop)";
+                    btn.style.background = "#ffc107";
+                    status.innerText = "?? ??? ?????? ??...";
+                } catch (err) {
+                    status.innerText = "? ?????? ???? ??????! ????? ?????? ??? ????";
+                    console.error(err);
+                }
             }
         }
 
         async function submitAgreement() {
+            const status = document.getElementById('status');
             if (!audioBlob) {
-                alert("እባክዎን መጀመሪያ የድምፅ ውል ይቅረፁ!");
+                alert("????? ????? ???? ?? ????!");
                 return;
             }
 
@@ -70,19 +84,21 @@
             formData.append('borrower_phone', document.getElementById('borrower').value);
             formData.append('amount', document.getElementById('amount').value);
             formData.append('due_date', document.getElementById('dueDate').value);
-            formData.append('voice_note', audioBlob, 'voice_agreement.wav');
+            formData.append('voice_note', audioBlob, 'voice_agreement.webm');
 
-            document.getElementById('status').innerText = "እየተላከ ነው...";
+            status.innerText = "????? ??...";
 
             try {
-                const response = await fetch('http://localhost:5000/api/agreements/create', {
+                const response = await fetch('/api/agreements/create', {
                     method: 'POST',
                     body: formData
                 });
                 const result = await response.json();
-                document.getElementById('status').innerText = "✅ " + result.message;
+                status.style.color = "green";
+                status.innerText = "? " + result.message;
             } catch (error) {
-                document.getElementById('status').innerText = "❌ ስህተት ተፈጽሟል! ሰርቨሩ መብራቱን ያረጋግጡ።";
+                status.style.color = "red";
+                status.innerText = "? ??? ??????! ???? ????? ??????";
             }
         }
     </script>
